@@ -1,0 +1,441 @@
+ % Escrever aqui o numero e o nome do aluno
+ :- use_module(library(clpfd)). % para poder usar transpose/2
+ :- set_prolog_flag(answer_write_options,[max_depth(0)]). % ver listas completas
+ :- ['puzzlesAcampar.pl']. % Ficheiro dado. No Mooshak tera mais puzzles.
+ % Atencao: nao deves copiar nunca os puzzles para o teu ficheiro de codigo
+ % Segue-se o codigo
+
+
+
+%vizinhanca((L,C),Coordenadas) -> obtem a vizinhanca direta de 1 coordenada
+
+vizinhanca((L,C),[(L1,C1),(L2,C2),(L3,C3),(L4,C4)]):-  
+    %criei todas as coordenadas
+    L1 is L-1,
+    L2 is L,
+    L3 is L,
+    L4 is L+1,
+    C1 is C,
+    C2 is C-1,
+    C3 is C+1,
+    C4 is C.
+
+%vizinhancaAlargada((L,C),Coordenadas) -> 
+%  obtem a vizinhanca direta e diagonal de 1 coordenada
+
+vizinhancaAlargada((L,C),P3):- 
+    L1 is L-1,
+    L2 is L-1,
+    L3 is L+1,
+    L4 is L+1,
+    C1 is C-1,
+    C2 is C+1,
+    C3 is C-1,
+    C4 is C+1, 
+    vizinhanca((L,C),P1),
+    append(P1,[(L1,C1),(L2,C2),(L3,C3),(L4,C4)],P2),
+    sort(P2,P3).
+
+    
+
+
+%todasCelulas(Tabuleiro, TodasCelulas) -> obtem todas as celulas do Tabuleiro
+
+todasCelulas(T,Res3):-
+    gerador(T,Res1),
+    flatten(Res1,Res2),
+    transformador(Res2,Res3).
+
+%todasCelulas(T,TodasCelulas,Objeto) -> obtem todas as celulas de um objeto
+%                                       do Tabuleiro
+
+todasCelulas(T,OUTPUT2,Objeto):-
+    flatten(T,LObjetos),
+    gerador(T,TodasCelulas),
+    todasCelulas(LObjetos,OUTPUT,Objeto,TodasCelulas,[]), !,
+    flatten(OUTPUT,OUTPUT1),
+    transformador(OUTPUT1,OUTPUT2).
+
+
+%uso uma iteracao para adicionar as celulas que contem o objeto a uma lista
+
+todasCelulas([],OUTPUT,_,[],OUTPUT).
+
+todasCelulas([Head|Tail],OUTPUT,Objeto,[Head1|Tail1],Ac):-
+    var(Objeto),
+    var(Head),
+    append(Ac, [Head1], Ac1),
+    todasCelulas(Tail,OUTPUT,Objeto,Tail1,Ac1).
+    %caso o objeto seja uma variavel
+
+todasCelulas([Head|Tail],OUTPUT,Objeto,[Head1|Tail1],Ac):-
+    Head == Objeto, %se a celula conter o objeto pedido
+    append(Ac, [Head1], Ac1), %sera adicionado a lista
+    todasCelulas(Tail,OUTPUT,Objeto,Tail1,Ac1).
+
+todasCelulas([Head|Tail],OUTPUT,Objeto,[_|Tail1],Ac):-
+    Head \== Objeto, %caso contrario nao acontece nada
+    todasCelulas(Tail,OUTPUT,Objeto,Tail1,Ac).
+
+%******************************************************************************
+% Predicados auxiliares para o predicado todasCelulas/3 e todasCelulas/4
+% transformador(Lista1,Lista2) transforma Lista de listas [[],[]] -> [(),()]
+
+transformador([],[]).
+
+transformador([PriEl,SegEl|Tail1],[Head2|Tail2]):-
+    Head2 = (PriEl,SegEl),
+    transformador(Tail1,Tail2).
+
+
+% gerador(T,todasCelulas) -> gera todas as celulas em lista de listas -> [[],[]]
+gerador(T,Res1):-
+    length(T,Len),
+    length(L,2),
+    findall(L,maplist(between(1,Len), L),Res1).
+
+%******************************************************************************
+
+
+%calculaObjectosTabuleiro(Tabuleiro,ContagemLinhas,ContagemColunas,Objecto) ->
+% calcula o numero de um objeto por linhas e por colunas de um tabuleiro
+
+calculaObjectosTabuleiro(T,CLinhas,CColunas,Objecto):-
+    transpose(T,TTransposto), 
+    %obter o transposto do Tabuleiro para fazer contagem das colunas   
+    calculaObjectosTabuleiro(T,TTransposto,CLinhas,CColunas,Objecto).
+
+%atraves de uma recursao conto o numero de objetos 
+calculaObjectosTabuleiro([],[],[],[],_).
+
+calculaObjectosTabuleiro([H|T],[HT|TT],CLinhas,CColunas,Objecto):-
+    nElmLista(H,N,Objecto), %conta os objetos de cada linha
+    CLinhas = [N|Resto],
+    nElmLista(HT,NT,Objecto), % conta os objetos de cada coluna
+    CColunas = [NT|RestoT],
+    calculaObjectosTabuleiro(T,TT,Resto,RestoT,Objecto).
+
+%******************************************************************************
+% Predicado auxiliar para o predicado calculaObjectosTabuleiro/4
+% nElmLista(Lista1,N,Objecto) -> diz o N de X elementos de uma listas
+
+nElmLista([],0,_):- !.
+
+nElmLista([Head|Tail],N1,Objecto):-
+    var(Objecto),
+    var(Head),
+    nElmLista(Tail,N,Objecto),
+    N1 is N + 1.
+%caso pretenda calcular o N de elementos livres
+
+
+nElmLista([Head|Tail],N1,Objecto):-
+    Head == Objecto, 
+    nElmLista(Tail,N,Objecto),
+    N1 is N + 1.
+
+nElmLista([Head|Tail],N,Objecto):-
+    Head \== Objecto,
+    nElmLista(Tail,N,Objecto).
+
+%caso pretenda calcular o N de arvores/tendas/relva
+%********************************************************************************
+
+% celulaVazia(Tabuleiro, (L, C)) -> indica de a coordenada e livre ou relva
+
+celulaVazia(Tabuleiro,(L,C)):-
+    length(Tabuleiro,Rebenta),
+    L \== 0,
+    L =< Rebenta,
+    C \== 0,
+    C =< Rebenta,
+    !,  %condicoes para caso a coordenada esteja fora do Tabuleiro
+        %nao usar o nth1/3
+    nth1(L,Tabuleiro,Linha),
+    nth1(C,Linha,Objecto),
+    Objecto \== a,
+    Objecto \== t.
+
+celulaVazia(_,_):- !.
+    %caso as coordenadas estejam fora do Tabuleiro
+    %para nao dar false
+    
+
+% insereObjectoCelula(Tabuleiro, TendaOuRelva, (L, C)) -> 
+%  insere um objeto numa coordenada escolhida no Tabuleiro
+
+insereObjectoCelula(Tabuleiro,TendaOuRelva,(L,C)):-
+    length(Tabuleiro,Rebenta),
+    L \== 0,
+    L =< Rebenta,
+    C \== 0,
+    C =< Rebenta,
+    nth1(L,Tabuleiro,Linha),
+    nth1(C,Linha,Coordenada),
+    Coordenada \== a,  
+    Coordenada \== t,
+    Coordenada = TendaOuRelva,
+    !. 
+    %so ira inserir um objeto caso a celula
+    %a esteja no tabuleiro e esteja vazia
+insereObjectoCelula(_,_,_). %so para dar sempre true
+
+
+%insereObjectoEntrePosicoes(Tabuleiro, TendaOuRelva,(L, C1),(L, C2)) ->
+%insere entre as coordenadas (L,C1) e (L,C2),inclusive, tendas/relva
+
+insereObjectoEntrePosicoes(Tabuleiro,TendaOuRelva,(L, C1), (L,C2)):-
+    findall(Coluna,between(C1,C2,Coluna),Coordenadas), 
+    %obtenho a linha que quero preencher
+    cicloInsere(Coordenadas,Tabuleiro,TendaOuRelva,L).
+
+%******************************************************************************
+%predicado auxiliar 
+
+% cicloInsere(Coordenadas,Tabuleiro,TendaOuRelva,Linha) -> 
+%repete ESPECIFICAMENTE insereObjectoCelula/3
+
+cicloInsere([],_,_,_).
+
+cicloInsere([H|T],Tabuleiro,TendaOuRelva,L):-
+    insereObjectoCelula(Tabuleiro,TendaOuRelva,(L,H)),
+    cicloInsere(T,Tabuleiro,TendaOuRelva,L).
+
+%******************************************************************************
+
+
+
+%relva(Puzzle)- coloca relva nas linhas/colunas onde nao pode haver mais tendas
+
+relva(Puzzle):-
+
+    (T,TendasLinhas,TendasColunas) = Puzzle,
+    %T ->tabuleiro do puzzle
+    %TendasLinhas ->lista do n de tendas por lin 
+    %TendasColunas ->lista do n de tendas por col  
+    calculaObjectosTabuleiro(T,ContagemLinhas,ContagemColunas,t),
+    cicloRelva(TendasLinhas,ContagemLinhas,T,1,r),
+    transpose(T,TTransposto),
+    cicloRelva(TendasColunas,ContagemColunas,TTransposto,1,r),
+    transpose(TTransposto,T),
+    !.
+
+%******************************************************************************
+%predicado auxiliar cicloRelva/5,
+%cicloRelva(Tendas,Contagem,Tabuleiro,NLinha,Objeto)-> 
+% se o N de tendas for igual ao da contagem coloca o Objeto nessa linha/coluna
+% este predicado pode ser utilizado pelo aproveita/1,
+% uma vez que a Contagem pode ser dos espacos vazios da linha/coluna
+% para saber se poderemos colocar la as tendas 
+
+cicloRelva([],[],_,_,_).
+
+cicloRelva([HL1|TL1],[HL2|TL2],T,Linha,Objecto):-
+    HL1 == HL2, %caso o n de tendas maximas sejam igual ao numero de tendas do
+    ProxLinha is Linha + 1,                 %tabuleiro atual, insere-se objeto
+    length(T,LenMax),
+    insereObjectoEntrePosicoes(T,Objecto,(Linha,1),(Linha,LenMax)),
+    cicloRelva(TL1,TL2,T,ProxLinha,Objecto).
+
+cicloRelva([HL1|TL1],[HL2|TL2],T,Linha,Objecto):-
+    HL1 \== HL2, %caso contrario nao faz nada
+    ProxLinha is Linha + 1,
+    cicloRelva(TL1,TL2,T,ProxLinha,Objecto).
+%******************************************************************************
+
+%inacessiveis(Tabuleiro) -> coloca relva nos locais impossiveis 
+% de ser colocada uma tenda
+
+inacessiveis(Tabuleiro):-
+    %obtenho todas as Celulas possiveis e todas as celulas com arvores
+    todasCelulas(Tabuleiro,TodasCelulas), 
+    todasCelulas(Tabuleiro,TodasArvores,a),
+
+    %identifico todas as vizinhancas das arvores
+    maplist(vizinhanca,TodasArvores,TodasVizinhancas),
+
+    %para o subtract funcionar preciso de usar flatten 
+    flatten(TodasVizinhancas,TodasVizinhancas1),
+
+    %retiro todas as vizinhancas das celulas possiveis
+    %nao e necessario tirar as arvores pq o insereObjectos 
+    %ignora por si as arvores
+    subtract(TodasCelulas,TodasVizinhancas1,Inacessiveis),
+    maplist(insereObjectoCelula(Tabuleiro,r),Inacessiveis).
+
+
+%aproveita(Puzzle) -> se o N de espacos vazios == N de tendas da linha/coluna
+% que o Puzzle deve ter --> coloca tendas nessas coordenadas
+
+aproveita(Puzzle):-
+    (T,TendasLinhas,TendasColunas) = Puzzle,
+    %T ->tabuleiro do puzzle
+    %TendasLinhas ->lista do n de tendas por lin 
+    %TendasColunas ->lista do n de tendas por col
+
+    %como a logica deste predicado e igual ao do predicado Relva
+    %decidi reutilizar o cicloRelva
+    calculaObjectosTabuleiro(T,ContagemLinhas,ContagemColunas,_),
+    cicloRelva(TendasLinhas,ContagemLinhas,T,1,t),
+    transpose(T,TTransposto),
+    cicloRelva(TendasColunas,ContagemColunas,TTransposto,1,t),
+    transpose(TTransposto,T),
+    !.
+    
+
+
+%limpaVizinhancas(Puzzle) -> coloca relva na vizinhanca alargada das tendas
+
+limpaVizinhancas(Puzzle):-
+    (T,_,_) = Puzzle,
+
+    %obtenho a vizinhanca alargada das tendas
+    todasCelulas(T,TodasTendas,t),
+    maplist(vizinhancaAlargada,TodasTendas,VizinhancaTendas),
+
+    %coloco relva nessas coordenadas
+    flatten(VizinhancaTendas,VizinhancaTendas1),
+    maplist(insereObjectoCelula(T,r),VizinhancaTendas1).
+
+
+%unicaHipotese(Puzzle) -> coloca uma tenda caso uma ou mais arvores
+%possuem uma UNICA HIPOTESE para colocar um objeto
+
+unicaHipotese(Puzzle):-
+    (T,_,_) = Puzzle,
+    todasCelulas(T,TodasArvores,a),
+    todasCelulas(T,TodasRelvas,r),
+    todasCelulas(T,TodasTendas,t),
+    bordas(T,Bordas),
+    verificalivres(T,TodasArvores,TodasRelvas,TodasArvores,TodasTendas,Bordas),
+    (T,_,_) = Puzzle,
+    %obtenho todas as unicas hipoteses de cada arvore e insiro uma tenda
+    !.
+
+%******************************************************************************
+%Predicados auxiliares para o predicado unicaHipotese/1
+
+
+verificalivres(_,[],_,_,_,_).
+
+verificalivres(T,[Head|Tail],TodasRelvas,TodasArvores,TodasTendas,Bordas):-
+
+    %obtenho a vizinhanca de cada arvore e vou retirando as 
+    %coordenadas ocupadas por objetos e as coordenadas fora do tabuleiro
+    %se so existir uma coordenada(Len == 1) ela sera a unica hipostese
+    vizinhanca(Head,VizinhancaArvore),
+    subtract(VizinhancaArvore,TodasRelvas,LivresEArv),
+    subtract(LivresEArv,TodasArvores,Livres),
+    subtract(Livres,Bordas,LivresDoT),
+    length(LivresDoT,Len),  
+    Len == 1,
+
+    %verificar se ao colocar uma tenda ela esta no territorio de outra
+    nth1(1,Livres,UnicaHipotese),
+    vizinhancaAlargada(UnicaHipotese,VizinhancaAlargada),
+    subtract(VizinhancaAlargada,TodasTendas,Verifica),
+    length(Verifica,Len1),
+    length(VizinhancaAlargada,Len2),
+    Len1 == Len2,
+    %adiciono a nova tenda a lista para as vizinhancas nao se comprometerem
+    append(LivresDoT,TodasTendas,TodasTendas1),
+    flatten(TodasTendas1,TodasTendas2),
+    %insiro a tenda
+    maplist(insereObjectoCelula(T,t),LivresDoT),
+    verificalivres(T,Tail,TodasRelvas,TodasArvores,TodasTendas2,Bordas).
+
+verificalivres(T,[_|Tail],TodasRelvas,TodasArvores,TodasTendas,Bordas):-
+    
+    verificalivres(T,Tail,TodasRelvas,TodasArvores,TodasTendas,Bordas).
+
+
+%bordas(T,Bordas) -> obtem as bordas do tabuleiro
+bordas(T,Bordas):-
+    length(T,Len),
+    OutOfBounds is Len + 1,
+    findall((0,C),(between(1,Len,C)),Borda1),
+    findall((OutOfBounds,C),(between(1,Len,C)),Borda2),
+    findall((L,0),(between(1,Len,L)),Borda3),
+    findall((L,OutOfBounds),(between(1,Len,L)),Borda4),
+    append([Borda1,Borda2,Borda3,Borda4],Bordas).
+
+
+
+%******************************************************************************
+
+
+
+
+%valida(LArv,LTen) -> valida se cada arvore esta associada a apenas uma tenda
+%e vice versa
+
+valida([HArv|TArv],[HTen|TTen]):-
+    length([HArv|TArv],LenA),
+    length([HTen|TTen],LenT),
+    LenA == LenT,
+    validaRedor([HArv|TArv],[HTen|TTen]), 
+    %checar se cada tenda tem pelo menos uma arvore
+    validaRedor([HTen|TTen],[HArv|TArv]).
+    %checar se cada arvore tem pelo menos uma tenda
+
+%******************************************************************************
+%Predicados auxiliares para o predicado valida/2
+
+%validaRedor(ListaValidante,ListaAValidar)->
+% verifica se da lista a validar existe pelo menos 1 da lista validante
+%ao seu redor
+validaRedor(_,[]):-!.
+
+validaRedor(ListaValidante,[H|T]):-
+    vizinhanca(H,VizinhancaAValidar),
+    checaRedor(VizinhancaAValidar,ListaValidante),
+    validaRedor(ListaValidante,T).
+
+
+%checaRedor(VizinhancaTenda,LArv) -> 
+% predicado auxiliar ao validaRedor/2 para realizar o seu objetivo inicial
+
+checaRedor(VizinhancaAValidar,ListaValidante):-
+    subtract(ListaValidante,VizinhancaAValidar,Checa),
+    length(ListaValidante,LenV),
+    length(Checa,LenC),
+    LenV \== LenC.
+    %se LenV for diferente de LenC significa que existe uma arvore/tenda na
+    % vizinhanca da tenda/arvore.
+
+%******************************************************************************
+
+%resolve(Puzzle) -> resolve um Puzzle 
+
+resolve(Puzzle):-tentativa(Puzzle,LArv,LTen),valida(LArv,LTen),!.
+
+tentativa(Puzzle,LArv,LTen):-  %verifica se o tabuleiro ja esta completo
+    (T,_,_) = Puzzle,
+    todasCelulas(T,Livres,_),
+    length(Livres,Len),
+    Len == 0,
+    todasCelulas(T,LArv,a),
+    todasCelulas(T,LTen,t).
+
+tentativa(Puzzle,LArv,LTen):- %usa as estrategias 
+    estrategia(Puzzle),       %e forca bruta
+    aleatorio(Puzzle),
+    tentativa(Puzzle,LArv,LTen).
+
+estrategia(P):-
+    (T,_,_) = P,
+    inacessiveis(T),
+    relva(P), aproveita(P),limpaVizinhancas(P), relva(P), unicaHipotese(P),limpaVizinhancas(P),
+    relva(P), aproveita(P),limpaVizinhancas(P), relva(P), unicaHipotese(P),limpaVizinhancas(P).
+
+aleatorio(P):- %caso o tabuleiro ja estiver completo usar nao se usa 
+    (T,_,_) = P, %forca bruta
+    todasCelulas(T,Livres,_),
+    Livres \== [],
+    member(Escolha,Livres),
+    insereObjectoCelula(T,t,Escolha).
+
+aleatorio(_):-!.
+
+
+  
